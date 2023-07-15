@@ -29,8 +29,10 @@ var (
 )
 
 func init() {
+	flag.BoolVar(&installFlag, "i", false, "Install the program on the system")
 	flag.BoolVar(&installFlag, "install", false, "Install the program on the system")
 	flag.StringVar(&outputFile, "o", "working_proxies.txt", "Output file name")
+	flag.StringVar(&outputFile, "output", "working_proxies.txt", "Output file name")
 	flag.Parse()
 
 	if installFlag {
@@ -170,11 +172,6 @@ func install() {
 	}
 
 	installPath := fmt.Sprintf("%s/%s", installDir, executableName)
-
-	if _, err := os.Stat(installPath); err == nil {
-		fmt.Printf("Program already installed at: %s\n", installPath)
-		return
-	}
 
 	if err := ioutil.WriteFile(installPath, execContent, 0755); err != nil {
 		fmt.Printf("Failed to write the executable to the installation path: %s\n", err)
