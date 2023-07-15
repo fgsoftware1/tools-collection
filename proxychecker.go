@@ -22,19 +22,24 @@ type Target struct {
 	Port string
 }
 
-var installFlag bool
+var (
+	installFlag bool
+	outputFile   string
+	proxychains4 string = "/etc/proxychains.conf"
+)
 
 func init() {
 	flag.BoolVar(&installFlag, "install", false, "Install the program on the system")
+	flag.StringVar(&outputFile, "o", "working_proxies.txt", "Output file name")
 	flag.Parse()
+
+	if installFlag {
+		install()
+		os.Exit(0)
+	}
 }
 
 func main() {
-	if installFlag {
-		install()
-		return
-	}
-
 	if len(os.Args) < 2 {
 		fmt.Println("Usage: go run proxychecker.go [proxyfile]")
 		return
@@ -48,7 +53,14 @@ func main() {
 		return
 	}
 
+	if len(targets) == 0 {
+		fmt.Println("No targets found in the file.")
+		return
+	}
+
 	fmt.Println("Starting proxy checking...")
+
+	var workingProxies []Target
 
 	for _, target := range targets {
 		isOnline := scanPort(target)
@@ -60,6 +72,13 @@ func main() {
 	}
 
 	fmt.Println("Proxy checking complete.")
+
+	if err := writeProxychainsFile(workingProxies); err != nil {
+		fmt.Printf("Error writing Proxychains4 file: %s\n", err)
+		return
+	}
+
+	fmt.Println("Working proxies saved to file:", outputFile)
 }
 
 func readTargetsFromFile(filePath string) ([]Target, error) {
@@ -73,7 +92,11 @@ func readTargetsFromFile(filePath string) ([]Target, error) {
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
-		parts := strings.Split(line, " ")
+
+		parts := strings.FieldsFunc(line, func(r rune) bool {
+			return r == ':' || r == ' '
+		})
+
 		if len(parts) != 2 {
 			continue
 		}
@@ -101,6 +124,31 @@ func scanPort(target Target) bool {
 	defer conn.Close()
 
 	return true
+}
+
+func writeProxychainsFile(proxies []Target) error {
+	file, err := os.Create(outputFile)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	writer := bufio.NewWriter(file)
+
+	for _, proxy := range proxies {
+		line := fmt.Sprintf("socks5 %s %s\n", proxy.IP, proxy.Port)
+		_, err := writer.WriteString(line)
+		if err != nil {
+			return err
+		}
+	}
+
+	err = writer.Flush()
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func install() {
