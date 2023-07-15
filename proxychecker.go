@@ -25,14 +25,13 @@ type Target struct {
 var (
 	installFlag bool
 	outputFile   string
-	proxychains4 string = "/etc/proxychains.conf"
 )
 
 func init() {
 	flag.BoolVar(&installFlag, "i", false, "Install the program on the system")
 	flag.BoolVar(&installFlag, "install", false, "Install the program on the system")
-	flag.StringVar(&outputFile, "o", "working_proxies.txt", "Output file name")
-	flag.StringVar(&outputFile, "output", "working_proxies.txt", "Output file name")
+	flag.StringVar(&outputFile, "o", "", "Output file name")
+	flag.StringVar(&outputFile, "output", "", "Output file name")
 	flag.Parse()
 
 	if installFlag {
@@ -68,6 +67,7 @@ func main() {
 		isOnline := scanPort(target)
 		if isOnline {
 			fmt.Printf("%s[+]%s %s:%s\n", Green, Reset, target.IP, target.Port)
+			workingProxies = append(workingProxies, target)
 		} else {
 			fmt.Printf("%s[-]%s %s:%s\n", Red, Reset, target.IP, target.Port)
 		}
@@ -75,7 +75,7 @@ func main() {
 
 	fmt.Println("Proxy checking complete.")
 
-	if err := writeProxychainsFile(workingProxies); err != nil {
+	if err := writeProxychainsFile(workingProxies, outputFile); err != nil {
 		fmt.Printf("Error writing Proxychains4 file: %s\n", err)
 		return
 	}
@@ -128,8 +128,8 @@ func scanPort(target Target) bool {
 	return true
 }
 
-func writeProxychainsFile(proxies []Target) error {
-	file, err := os.Create(outputFile)
+func writeProxychainsFile(proxies []Target, filename string) error {
+	file, err := os.Create(filename)
 	if err != nil {
 		return err
 	}
@@ -152,6 +152,7 @@ func writeProxychainsFile(proxies []Target) error {
 
 	return nil
 }
+
 
 func install() {
 	fmt.Println("Installing the program...")
